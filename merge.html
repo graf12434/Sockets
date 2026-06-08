@@ -5,230 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SmartSockets</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.4/mqtt.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg:      #0b0c0f;
-      --surface: #13151a;
-      --border:  #1e2128;
-      --accent:  #f0c040;
-      --on:      #3ddc84;
-      --off:     #3a3d47;
-      --text:    #e8e9ed;
-      --muted:   #5a5d6b;
-      --danger:  #e05a2b;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-
-    header {
-      padding: 24px 40px;
-      display: flex; align-items: center; justify-content: space-between;
-      border-bottom: 1px solid var(--border);
-    }
-    .logo { display: flex; align-items: center; gap: 12px; }
-    .logo-icon { width: 34px; height: 34px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-    .logo-text { font-size: 1.15rem; font-weight: 800; }
-    .logo-text span { color: var(--accent); }
-    .conn-status { display: flex; align-items: center; gap: 7px; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: var(--muted); background: var(--surface); padding: 7px 13px; border-radius: 20px; border: 1px solid var(--border); transition: all 0.3s; }
-    .conn-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); transition: all 0.3s; }
-    .conn-status.connected .conn-dot { background: var(--on); box-shadow: 0 0 6px var(--on); }
-    .conn-status.connected { color: var(--text); }
-    .conn-status.error .conn-dot { background: var(--danger); }
-
-    main { max-width: 1100px; margin: 0 auto; padding: 40px 40px 80px; }
-
-    #loadingState { text-align: center; padding: 80px 20px; color: var(--muted); }
-    .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #loadingState p { font-size: 0.85rem; }
-
-    .sockets-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 18px; }
-
-    .socket-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; position: relative; overflow: hidden; transition: border-color 0.3s, transform 0.2s; animation: cardIn 0.35s ease both; }
-    @keyframes cardIn { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
-    .socket-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--off); transition: background 0.4s; }
-    .socket-card.on::before { background: var(--on); }
-    .socket-card.on { border-color: rgba(61,220,132,0.2); }
-    .socket-card:hover { transform: translateY(-2px); }
-
-    .device-status { display: flex; align-items: center; gap: 6px; font-family: 'JetBrains Mono', monospace; font-size: 0.67rem; margin-bottom: 10px; }
-    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: all 0.3s; }
-    .status-dot.online  { background: var(--on); box-shadow: 0 0 5px var(--on); }
-    .status-dot.offline { background: var(--danger); }
-    .status-label { color: var(--muted); }
-    .status-label.online  { color: var(--on); }
-    .status-label.offline { color: var(--danger); }
-
-    .card-name { font-size: 1.05rem; font-weight: 700; margin-bottom: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    .toggle-wrap { display: flex; align-items: center; justify-content: space-between; }
-    .relay-state { font-size: 1.9rem; font-weight: 800; color: var(--muted); transition: color 0.3s; font-family: 'JetBrains Mono', monospace; }
-    .relay-state.on { color: var(--on); }
-    .toggle-btn { width: 62px; height: 33px; border-radius: 17px; border: none; cursor: pointer; position: relative; background: var(--off); transition: background 0.3s; flex-shrink: 0; }
-    .toggle-btn.on { background: var(--on); }
-    .toggle-btn.disabled { opacity: 0.35; cursor: not-allowed; }
-    .toggle-btn::after { content: ''; position: absolute; top: 4px; left: 4px; width: 25px; height: 25px; border-radius: 50%; background: #fff; transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
-    .toggle-btn.on::after { transform: translateX(29px); }
-
-    .empty-state { grid-column: 1/-1; text-align: center; padding: 80px 20px; color: var(--muted); }
-    .empty-icon { font-size: 2.8rem; margin-bottom: 14px; opacity: 0.35; }
-    .empty-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 6px; }
-    .empty-sub { font-size: 0.82rem; }
-
-    @media(max-width: 600px) { header { padding: 20px; } main { padding: 24px 20px 60px; } }
-  </style>
+  <link rel="stylesheet" href="assets/css/styles.css">
 </head>
 <body>
-<header>
-  <div class="logo">
-    <div class="logo-icon">⚡</div>
-    <div class="logo-text">Smart<span>Sockets</span></div>
-  </div>
-  <div class="conn-status" id="connStatus">
-    <div class="conn-dot"></div>
-    <span id="connLabel">Підключення...</span>
-  </div>
-</header>
-
-<main>
-  <div id="loadingState">
-    <div class="spinner"></div>
-    <p>Завантаження розеток...</p>
-  </div>
-  <div class="sockets-grid" id="socketsGrid" style="display:none"></div>
-</main>
-
-<script>
-const TOPIC_CONFIG       = 'home/config/sockets';
-const STORAGE_KEY_BROKER = 'smart_broker_v1';
-
-let mqttClient   = null;
-let sockets      = [];
-let configLoaded = false;
-
-function getBrokerConfig() {
-  const p = new URLSearchParams(window.location.search);
-  if (p.get('host')) return { host: p.get('host'), port: parseInt(p.get('port')) || 8884, user: p.get('user') || '', pass: p.get('pass') || '' };
-  try {
-    const cfg = JSON.parse(localStorage.getItem(STORAGE_KEY_BROKER) || '{}');
-    return { host: cfg.host || '', port: parseInt(cfg.port) || 8884, user: cfg.user || '', pass: cfg.pass || '' };
-  } catch { return null; }
-}
-
-function mqttConnect() {
-  const cfg = getBrokerConfig();
-  if (!cfg?.host) {
-    setConnStatus('error', 'Немає конфігурації');
-    document.getElementById('loadingState').innerHTML = '<div class="empty-icon">⚙️</div><p style="color:var(--muted);font-size:.85rem">Зверніться до адміністратора</p>';
-    return;
-  }
-  setConnStatus('', 'Підключення...');
-  const clientId = 'user_' + Math.random().toString(36).slice(2, 8);
-  mqttClient = mqtt.connect(`wss://${cfg.host}:${cfg.port}/mqtt`, {
-    clientId, username: cfg.user || undefined, password: cfg.pass || undefined,
-    clean: true, reconnectPeriod: 5000
-  });
-  mqttClient.on('connect', () => {
-    setConnStatus('connected', 'Підключено');
-    mqttClient.subscribe(TOPIC_CONFIG, { qos: 1 });
-  });
-  mqttClient.on('error', () => setConnStatus('error', 'Помилка'));
-  mqttClient.on('offline', () => {
-    setConnStatus('', 'Офлайн');
-    sockets.forEach(s => { s.online = false; });
-    renderSockets();
-  });
-  mqttClient.on('message', (topic, message) => handleMessage(topic, message.toString().trim()));
-}
-
-function handleMessage(topic, payload) {
-  if (topic === TOPIC_CONFIG) {
-    try {
-      const list = JSON.parse(payload);
-      const prev = {};
-      sockets.forEach(s => { prev[s.id] = { relay: s.relay, online: s.online }; });
-      sockets = list.map(item => ({ id: item.id, name: item.name, relay: prev[item.id]?.relay ?? false, online: prev[item.id]?.online ?? false }));
-      sockets.forEach(s => {
-        mqttClient.subscribe(`home/${s.id}/state`,  { qos: 1 });
-        mqttClient.subscribe(`home/${s.id}/status`, { qos: 1 });
-      });
-      configLoaded = true;
-      document.getElementById('loadingState').style.display = 'none';
-      document.getElementById('socketsGrid').style.display  = 'grid';
-      renderSockets();
-    } catch(e) { console.error(e); }
-    return;
-  }
-  const parts = topic.split('/');
-  if (parts.length < 3) return;
-  const s = sockets.find(x => x.id === parts[1]);
-  if (!s) return;
-if (parts[2] === 'state') {
-    s.relay = payload === 'ON';
-    updateCard(s);
-    return;
-  }
-  if (parts[2] === 'status') {
-    s.online = payload === 'online';
-    updateCard(s);
-    return;
-  }
-}
-
-function updateCard(s) {
-  const card = document.querySelector(`[data-id="${s.id}"]`);
-  if (!card) return;
-  card.classList.toggle('on', s.relay);
-  card.querySelector('.relay-state').className = 'relay-state' + (s.relay ? ' on' : '');
-  card.querySelector('.relay-state').textContent = s.relay ? 'ON' : 'OFF';
-  card.querySelector('.toggle-btn').className =
-    'toggle-btn' + (s.relay ? ' on' : '') + (!s.online ? ' disabled' : '');
-  card.querySelector('.status-dot').className = 'status-dot ' + (s.online ? 'online' : 'offline');
-  card.querySelector('.status-label').className = 'status-label ' + (s.online ? 'online' : 'offline');
-  card.querySelector('.status-label').textContent = s.online ? 'online' : 'offline';
-}
-
-// ══════════════════════════════════════════════════
-//  Рендер
-// ══════════════════════════════════════════════════
-
-function renderSockets() {
-  const grid = document.getElementById('socketsGrid');
-  if (!sockets.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">🔌</div><div class="empty-title">Розеток немає</div><div class="empty-sub">Адмін ще не додав жодної розетки</div></div>`;
-    return;
-  }
-  grid.innerHTML = sockets.map((s, i) => `
-    <div class="socket-card ${s.relay ? 'on' : ''}" data-id="${s.id}">
-      <div class="device-status">
-        <div class="status-dot ${s.online ? 'online' : 'offline'}"></div>
-        <span class="status-label ${s.online ? 'online' : 'offline'}">${s.online ? 'online' : 'offline'}</span>
+  <div class="app-shell is-visible">
+    <header class="site-header">
+      <div class="logo">
+        <div class="logo-icon" aria-hidden="true">⚡</div>
+        <div class="logo-text">Smart<span>Sockets</span></div>
       </div>
-      <div class="card-name">${esc(s.name)}</div>
-      <div class="toggle-wrap">
-        <div class="relay-state ${s.relay ? 'on' : ''}">${s.relay ? 'ON' : 'OFF'}</div>
-        <button class="toggle-btn ${s.relay ? 'on' : ''} ${!s.online ? 'disabled' : ''}" onclick="toggleSocket(${i})"></button>
+      <div class="conn-status" id="connStatus">
+        <div class="conn-dot"></div>
+        <span id="connLabel">Підключення...</span>
       </div>
-    </div>`).join('');
-}
+    </header>
 
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    <main class="page-main">
+      <div id="loadingState" class="loading-state">
+        <div class="spinner"></div>
+        <p>Завантаження розеток...</p>
+      </div>
+      <div class="sockets-grid" id="socketsGrid" hidden></div>
+    </main>
 
-function toggleSocket(i) {
-  const s = sockets[i];
-  if (!s?.online || !mqttClient?.connected) return;
-  mqttClient.publish(`home/${s.id}/command`, s.relay ? 'OFF' : 'ON', { qos: 1 });
-  s.relay = !s.relay;
-  renderSockets();
-}
+    <footer class="site-footer">
+      <span>© <span id="copyrightYear"></span> CHIEF. Всі права захищені.</span>
+    </footer>
+  </div>
 
-function setConnStatus(cls, text) {
-  document.getElementById('connStatus').className = 'conn-status' + (cls ? ' ' + cls : '');
-  document.getElementById('connLabel').textContent = text;
-}
-
-mqttConnect();
-</script>
+  <script src="assets/js/shared.js"></script>
+  <script src="assets/js/client.js"></script>
 </body>
 </html>
