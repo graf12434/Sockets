@@ -1,4 +1,4 @@
-const ADMIN_PASSWORD = 'Qwerty1306';
+const ADMIN_PASSWORD = 'Otis34#Reb';
 
 let mqttClient = null;
 let sockets = [];
